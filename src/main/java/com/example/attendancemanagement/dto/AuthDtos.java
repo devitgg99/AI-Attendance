@@ -63,6 +63,38 @@ public class AuthDtos {
         private String newPassword;
     }
 
+    // User info structure - each user has exactly one role
+    // The user_info JSONB field will contain role-specific information
+    
+    // Example formats for user_info JSONB field:
+    
+    // Admin user_info format:
+    // {
+    //   "role": "admin"
+    // }
+    
+    // Staff user_info format:
+    // {
+    //   "role": "staff",
+    //   "phone": "098765432",
+    //   "date_of_birth": "2002-09-15",
+    //   "place_of_birth": "Siem Reap",
+    //   "phone_number": "099999999",
+    //   "image_url": "http://example.com/staff.jpg",
+    //   "current_address": "phnom penh, dong kao",
+    //   "position": "IT instructor"
+    // }
+    
+    // Student user_info format:
+    // {
+    //   "role": "student",
+    //   "university": "royal university of phnom penh",
+    //   "date_of_birth": "2002-09-15",
+    //   "place_of_birth": "Siem Reap",
+    //   "phone_number": "099999999",
+    //   "image_url": "http://example.com/student.jpg"
+    // }
+
     @Data
     public static class RegisterRequest {
         @Email @NotBlank
@@ -73,7 +105,7 @@ public class AuthDtos {
         @NotBlank
         private String fullName;
         @JsonProperty("user_info")
-        private Map<String, Object> userInfo; // JSON object containing role and other info
+        private Map<String, Object> userInfo; // JSONB field - each user has exactly one role with role-specific fields
     }
 
     @Data
@@ -83,7 +115,7 @@ public class AuthDtos {
         @JsonProperty("full_name")
         private String fullName;
         @JsonProperty("user_info")
-        private Map<String, Object> userInfo; // JSON object containing role and other info
+        private Map<String, Object> userInfo; // JSONB field - each user has exactly one role with role-specific fields
         private String createdAt;
         private String updatedAt;
     }
