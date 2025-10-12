@@ -1,18 +1,15 @@
 package com.example.attendancemanagement.entity;
 
-import com.example.attendancemanagement.enums.AttendanceStatus;
 import com.example.attendancemanagement.enums.CheckInStatus;
 import com.example.attendancemanagement.enums.CheckOutStatus;
-import com.example.attendancemanagement.enums.DateStatus;
-import com.example.attendancemanagement.enums.Shift;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.hibernate.annotations.GenericGenerator;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.sql.Time;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Entity
@@ -34,40 +31,21 @@ public class Attendance extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false, referencedColumnName = "user_id")
     private User user;
     
-    @Column(name = "attendance_date", nullable = false)
-    private LocalDate attendanceDate;
+    @JsonProperty("check_in")
+    @Column(name = "check_in", columnDefinition = "TIME")
+    private LocalTime checkIn;
     
-    @JsonProperty("check_in_time")
-    @Column(name = "check_in_time")
-    private LocalDateTime checkInTime;
-    
-    @JsonProperty("check_out_time")
-    @Column(name = "check_out_time")
-    private LocalDateTime checkOutTime;
-    
-    @JsonProperty("attendance_status")
+    @JsonProperty("checkin_status")
     @Enumerated(EnumType.STRING)
-    @Column(name = "attendance_status", nullable = false)
-    private AttendanceStatus attendanceStatus;
+    @Column(name = "checkin_status")
+    private CheckInStatus checkinStatus;
     
-    @JsonProperty("check_in_status")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "check_in_status")
-    private CheckInStatus checkInStatus;
+    @JsonProperty("checkout_out")
+    @Column(name = "checkout_out", columnDefinition = "TIME")
+    private LocalTime checkoutOut;
     
-    @JsonProperty("check_out_status")
+    @JsonProperty("checkout_status")
     @Enumerated(EnumType.STRING)
-    @Column(name = "check_out_status")
-    private CheckOutStatus checkOutStatus;
-    
-    @JsonProperty("shift")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "shift", nullable = false)
-    private Shift shift;
-    
-    @JsonProperty("date_status")
-    @Enumerated(EnumType.STRING)
-    @Column(name = "date_status", nullable = false)
-    private DateStatus dateStatus;
-
+    @Column(name = "checkout_status")
+    private CheckOutStatus checkoutStatus;
 }

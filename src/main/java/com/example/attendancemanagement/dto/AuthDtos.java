@@ -119,6 +119,27 @@ public class AuthDtos {
         private String createdAt;
         private String updatedAt;
     }
+
+    @Data
+    public static class CheckInRequest {
+        // No additional fields needed for check-in
+    }
+
+    @Data
+    public static class CheckInResponse {
+        @JsonProperty("attendance_id")
+        private String attendanceId;
+        @JsonProperty("user_id")
+        private String userId;
+        @JsonProperty("attendance_date")
+        private String attendanceDate;
+        @JsonProperty("check_in_time")
+        private String checkInTime;
+        @JsonProperty("checkin_status")
+        private String checkInStatus;
+        @JsonProperty("message")
+        private String message;
+    }
 }
 
 

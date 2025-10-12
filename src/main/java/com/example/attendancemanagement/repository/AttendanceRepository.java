@@ -1,8 +1,8 @@
 package com.example.attendancemanagement.repository;
 
 import com.example.attendancemanagement.entity.Attendance;
-import com.example.attendancemanagement.enums.AttendanceStatus;
-import com.example.attendancemanagement.enums.DateStatus;
+import com.example.attendancemanagement.enums.CheckInStatus;
+import com.example.attendancemanagement.enums.CheckOutStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,62 +17,75 @@ import java.util.UUID;
 public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
     
     /**
-     * Find attendance record by user and date
+     * Find attendance record by user and check-in date
      */
-    Optional<Attendance> findByUserUserIdAndAttendanceDate(UUID userId, LocalDate attendanceDate);
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId AND DATE(a.checkIn) = :date")
+    Optional<Attendance> findByUserUserIdAndCheckInDate(UUID userId, LocalDate date);
     
     /**
      * Find all attendance records for a user
      */
-    List<Attendance> findByUserUserIdOrderByAttendanceDateDesc(UUID userId);
+    List<Attendance> findByUserUserIdOrderByCheckInDesc(UUID userId);
     
     /**
      * Find attendance records for a user within date range
      */
-    List<Attendance> findByUserUserIdAndAttendanceDateBetweenOrderByAttendanceDateDesc(
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
+           "AND DATE(a.checkIn) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.checkIn DESC")
+    List<Attendance> findByUserUserIdAndCheckInDateBetweenOrderByCheckInDesc(
         UUID userId, LocalDate startDate, LocalDate endDate);
     
     /**
-     * Find attendance records by status
+     * Find attendance records by check-in status
      */
-    List<Attendance> findByAttendanceStatusOrderByAttendanceDateDesc(AttendanceStatus status);
+    List<Attendance> findByCheckinStatusOrderByCheckInDesc(CheckInStatus checkinStatus);
     
     /**
-     * Find attendance records by date status
+     * Find attendance records by check-out status
      */
-    List<Attendance> findByDateStatusOrderByAttendanceDateDesc(DateStatus dateStatus);
+    List<Attendance> findByCheckoutStatusOrderByCheckoutOutDesc(CheckOutStatus checkoutStatus);
     
     /**
      * Find attendance records for a specific date
      */
-    List<Attendance> findByAttendanceDateOrderByCreatedAtDesc(LocalDate attendanceDate);
+    @Query("SELECT a FROM Attendance a WHERE DATE(a.checkIn) = :date ORDER BY a.checkIn DESC")
+    List<Attendance> findByCheckInDateOrderByCheckInDesc(LocalDate date);
     
     /**
      * Check if attendance record exists for user and date
      */
-    boolean existsByUserUserIdAndAttendanceDate(UUID userId, LocalDate attendanceDate);
+    @Query("SELECT COUNT(a) > 0 FROM Attendance a WHERE a.user.userId = :userId AND DATE(a.checkIn) = :date")
+    boolean existsByUserUserIdAndCheckInDate(UUID userId, LocalDate date);
     
     /**
      * Count attendance records for a user within date range
      */
-    long countByUserUserIdAndAttendanceDateBetween(UUID userId, LocalDate startDate, LocalDate endDate);
+    @Query("SELECT COUNT(a) FROM Attendance a WHERE a.user.userId = :userId " +
+           "AND DATE(a.checkIn) BETWEEN :startDate AND :endDate")
+    long countByUserUserIdAndCheckInDateBetween(UUID userId, LocalDate startDate, LocalDate endDate);
     
     /**
-     * Find attendance records by user and status
+     * Find attendance records by user and check-in status
      */
-    List<Attendance> findByUserUserIdAndAttendanceStatusOrderByAttendanceDateDesc(UUID userId, AttendanceStatus status);
+    List<Attendance> findByUserUserIdAndCheckinStatusOrderByCheckInDesc(UUID userId, CheckInStatus checkinStatus);
+    
+    /**
+     * Find attendance records by user and check-out status
+     */
+    List<Attendance> findByUserUserIdAndCheckoutStatusOrderByCheckoutOutDesc(UUID userId, CheckOutStatus checkoutStatus);
     
     /**
      * Custom query to find attendance records with specific criteria
      */
     @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
-           "AND a.attendanceDate BETWEEN :startDate AND :endDate " +
-           "AND a.attendanceStatus = :status " +
-           "ORDER BY a.attendanceDate DESC")
-    List<Attendance> findAttendanceByUserAndDateRangeAndStatus(
+           "AND DATE(a.checkIn) BETWEEN :startDate AND :endDate " +
+           "AND a.checkinStatus = :checkinStatus " +
+           "ORDER BY a.checkIn DESC")
+    List<Attendance> findAttendanceByUserAndDateRangeAndCheckinStatus(
         @Param("userId") UUID userId,
         @Param("startDate") LocalDate startDate,
         @Param("endDate") LocalDate endDate,
-        @Param("status") AttendanceStatus status
+        @Param("checkinStatus") CheckInStatus checkinStatus
     );
 }
