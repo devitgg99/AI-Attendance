@@ -85,18 +85,39 @@ public class AuthService {
 
         // persist session with hashed refresh token
         if ("admin".equals(userRole)) {
-            UserSession session = new UserSession();
-            session.setUser(user);
-            session.setDeviceId(req.getDeviceId());
+            // Admin users can have multiple devices
+            // Check if session with same device ID exists
+            Optional<UserSession> existingSession = userSessionRepository.findByDeviceIdAndUserUserId(req.getDeviceId(), user.getUserId());
+            
+            UserSession session;
+            if (existingSession.isPresent()) {
+                // Update existing session (same device ID, update FCM token)
+                session = existingSession.get();
+            } else {
+                // Create new session for admin (different device ID)
+                session = new UserSession();
+                session.setUser(user);
+                session.setDeviceId(req.getDeviceId());
+            }
             session.setFcmToken(req.getFcmToken());
             session.setHarshRefreshToken(passwordEncoder.encode(refresh));
             userSessionRepository.save(session);
         } else {
-            // Non-admin: ensure only one session row exists (create or update latest)
-            UserSession session = userSessionRepository.findTopByUserUserIdOrderByCreatedAtDesc(user.getUserId())
-                    .orElseGet(UserSession::new);
-            session.setUser(user);
-            session.setDeviceId(req.getDeviceId());
+            // Non-admin (students): ensure only one session row exists
+            // Check if device ID matches existing session
+            Optional<UserSession> existingSession = userSessionRepository.findTopByUserUserIdOrderByCreatedAtDesc(user.getUserId());
+            
+            UserSession session;
+            if (existingSession.isPresent() && existingSession.get().getDeviceId() != null && 
+                existingSession.get().getDeviceId().equals(req.getDeviceId())) {
+                // Update existing session (same device ID, FCM token can be different)
+                session = existingSession.get();
+            } else {
+                // Create new session for student
+                session = new UserSession();
+                session.setUser(user);
+                session.setDeviceId(req.getDeviceId());
+            }
             session.setFcmToken(req.getFcmToken());
             session.setHarshRefreshToken(passwordEncoder.encode(refresh));
             userSessionRepository.save(session);

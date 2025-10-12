@@ -38,3 +38,4 @@ public class UserSession extends BaseEntity {
     @Column(name = "pin_harsh", columnDefinition = "TEXT")
     private String pinHarsh;
 }
+

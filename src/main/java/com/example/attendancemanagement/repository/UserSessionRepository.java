@@ -21,5 +21,8 @@ public interface UserSessionRepository extends JpaRepository<UserSession, UUID> 
     
     Optional<UserSession> findByDeviceId(String deviceId);
     
+    Optional<UserSession> findByDeviceIdAndUserUserId(String deviceId, UUID userId);
+    
     Optional<UserSession> findByPinHarsh(String pinHarsh);
 }
+
