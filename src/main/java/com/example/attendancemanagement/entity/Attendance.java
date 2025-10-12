@@ -2,13 +2,13 @@ package com.example.attendancemanagement.entity;
 
 import com.example.attendancemanagement.enums.CheckInStatus;
 import com.example.attendancemanagement.enums.CheckOutStatus;
+import com.example.attendancemanagement.enums.DateStatus;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.hibernate.annotations.GenericGenerator;
 
-import java.sql.Time;
 import java.time.LocalTime;
 import java.util.UUID;
 
@@ -48,4 +48,9 @@ public class Attendance extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "checkout_status")
     private CheckOutStatus checkoutStatus;
+
+    @JsonProperty("date_status")
+    @Enumerated(EnumType.STRING)
+    @Column(name = "date_status")
+    private DateStatus dateStatus;
 }

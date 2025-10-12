@@ -22,6 +22,56 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ex.getStatus()).body(body);
     }
 
+    @ExceptionHandler(MissingTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingToken(MissingTokenException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("code", ex.getCode());
+        body.put("message", ex.getMessage());
+        body.put("details", "Please provide a valid Authorization header with Bearer token");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(InvalidTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidToken(InvalidTokenException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("code", ex.getCode());
+        body.put("message", ex.getMessage());
+        body.put("details", "The provided token is invalid or malformed");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(ExpiredTokenException.class)
+    public ResponseEntity<Map<String, Object>> handleExpiredToken(ExpiredTokenException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("code", ex.getCode());
+        body.put("message", ex.getMessage());
+        body.put("details", "Please refresh your token or login again");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("code", ex.getCode());
+        body.put("message", ex.getMessage());
+        body.put("details", "You don't have permission to access this resource");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    @ExceptionHandler(TokenException.class)
+    public ResponseEntity<Map<String, Object>> handleTokenException(TokenException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now().toString());
+        body.put("code", ex.getCode());
+        body.put("message", ex.getMessage());
+        body.put("details", "There was an issue with the authentication token");
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(body);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
         Map<String, Object> body = new HashMap<>();

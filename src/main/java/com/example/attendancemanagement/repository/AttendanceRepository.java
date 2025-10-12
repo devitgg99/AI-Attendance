@@ -17,10 +17,10 @@ import java.util.UUID;
 public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
     
     /**
-     * Find attendance record by user and check-in date
+     * Find attendance record by user and attendance date
      */
-    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId AND DATE(a.checkIn) = :date")
-    Optional<Attendance> findByUserUserIdAndCheckInDate(UUID userId, LocalDate date);
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId AND DATE(a.createdAt) = :date")
+    Optional<Attendance> findByUserUserIdAndAttendanceDate(UUID userId, LocalDate date);
     
     /**
      * Find all attendance records for a user
@@ -31,9 +31,9 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
      * Find attendance records for a user within date range
      */
     @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
-           "AND DATE(a.checkIn) BETWEEN :startDate AND :endDate " +
-           "ORDER BY a.checkIn DESC")
-    List<Attendance> findByUserUserIdAndCheckInDateBetweenOrderByCheckInDesc(
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findByUserUserIdAndAttendanceDateBetweenOrderByCreatedAtDesc(
         UUID userId, LocalDate startDate, LocalDate endDate);
     
     /**
@@ -49,21 +49,21 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
     /**
      * Find attendance records for a specific date
      */
-    @Query("SELECT a FROM Attendance a WHERE DATE(a.checkIn) = :date ORDER BY a.checkIn DESC")
-    List<Attendance> findByCheckInDateOrderByCheckInDesc(LocalDate date);
+    @Query("SELECT a FROM Attendance a WHERE DATE(a.createdAt) = :date ORDER BY a.createdAt DESC")
+    List<Attendance> findByAttendanceDateOrderByCreatedAtDesc(LocalDate date);
     
     /**
      * Check if attendance record exists for user and date
      */
-    @Query("SELECT COUNT(a) > 0 FROM Attendance a WHERE a.user.userId = :userId AND DATE(a.checkIn) = :date")
-    boolean existsByUserUserIdAndCheckInDate(UUID userId, LocalDate date);
+    @Query("SELECT COUNT(a) > 0 FROM Attendance a WHERE a.user.userId = :userId AND DATE(a.createdAt) = :date")
+    boolean existsByUserUserIdAndAttendanceDate(UUID userId, LocalDate date);
     
     /**
      * Count attendance records for a user within date range
      */
     @Query("SELECT COUNT(a) FROM Attendance a WHERE a.user.userId = :userId " +
-           "AND DATE(a.checkIn) BETWEEN :startDate AND :endDate")
-    long countByUserUserIdAndCheckInDateBetween(UUID userId, LocalDate startDate, LocalDate endDate);
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate")
+    long countByUserUserIdAndAttendanceDateBetween(UUID userId, LocalDate startDate, LocalDate endDate);
     
     /**
      * Find attendance records by user and check-in status
@@ -79,9 +79,9 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
      * Custom query to find attendance records with specific criteria
      */
     @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
-           "AND DATE(a.checkIn) BETWEEN :startDate AND :endDate " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
            "AND a.checkinStatus = :checkinStatus " +
-           "ORDER BY a.checkIn DESC")
+           "ORDER BY a.createdAt DESC")
     List<Attendance> findAttendanceByUserAndDateRangeAndCheckinStatus(
         @Param("userId") UUID userId,
         @Param("startDate") LocalDate startDate,

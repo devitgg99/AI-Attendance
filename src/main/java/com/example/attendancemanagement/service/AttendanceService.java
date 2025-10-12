@@ -1,10 +1,12 @@
 package com.example.attendancemanagement.service;
 
-import com.example.attendancemanagement.dto.AuthDtos.CheckInRequest;
 import com.example.attendancemanagement.dto.AuthDtos.CheckInResponse;
+import com.example.attendancemanagement.dto.AuthDtos.CheckOutResponse;
 import com.example.attendancemanagement.entity.Attendance;
 import com.example.attendancemanagement.entity.User;
 import com.example.attendancemanagement.enums.CheckInStatus;
+import com.example.attendancemanagement.enums.CheckOutStatus;
+import com.example.attendancemanagement.enums.DateStatus;
 import com.example.attendancemanagement.exception.BadRequestException;
 import com.example.attendancemanagement.repository.AttendanceRepository;
 import com.example.attendancemanagement.repository.UserRepository;
@@ -15,7 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,25 +33,29 @@ public class AttendanceService {
     private final UserRepository userRepository;
     
     private static final LocalTime CHECK_IN_DEADLINE = LocalTime.of(8, 1); // 8:01 AM
+    private static final LocalTime CHECK_OUT_DEADLINE = LocalTime.of(17, 0); // 5:00 PM
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final ZoneId JAKARTA_ZONE = ZoneId.of("Asia/Jakarta");
 
     public CheckInResponse checkIn(UUID userId) {
         // Validate user exists
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BadRequestException("User not found"));
 
-        LocalDate today = LocalDate.now();
-        LocalDateTime now = LocalDateTime.now();
-        LocalTime currentTime = now.toLocalTime();
-        LocalTime check_time = LocalTime.now();
+        // Get current time in Jakarta timezone
+        ZonedDateTime jakartaNow = ZonedDateTime.now(JAKARTA_ZONE);
+        LocalDate today = jakartaNow.toLocalDate();
+        LocalDateTime now = jakartaNow.toLocalDateTime();
+        LocalTime currentTime = jakartaNow.toLocalTime().truncatedTo(ChronoUnit.SECONDS);
 
-        System.out.println("currentTime "+ currentTime);
-        System.out.println("check_time "+ check_time);
+        System.out.println("Jakarta time: " + jakartaNow);
+        System.out.println("Today: " + today);
+        System.out.println("Current time (truncated): " + currentTime);
 
         // Check if already checked in today
         Optional<Attendance> existingAttendance = attendanceRepository
-                .findByUserUserIdAndCheckInDate(userId, today);
+                .findByUserUserIdAndAttendanceDate(userId, today);
 
         if (existingAttendance.isPresent()) {
             throw new BadRequestException("You have already checked in today");
@@ -54,13 +63,16 @@ public class AttendanceService {
 
         // Determine check-in status based on time
         CheckInStatus checkinStatus = determineCheckInStatus(currentTime);
-
+        
+        // Determine date status based on current date
+        DateStatus dateStatus = determineDateStatus(today);
 
         // Create attendance record
         Attendance attendance = new Attendance();
         attendance.setUser(user);
         attendance.setCheckIn(currentTime);
         attendance.setCheckinStatus(checkinStatus);
+        attendance.setDateStatus(dateStatus);
 
         Attendance savedAttendance = attendanceRepository.save(attendance);
 
@@ -79,6 +91,63 @@ public class AttendanceService {
         return response;
     }
 
+    public CheckOutResponse checkOut(UUID userId) {
+        // Validate user exists
+        userRepository.findById(userId)
+                .orElseThrow(() -> new BadRequestException("User not found"));
+
+        // Get current time in Jakarta timezone
+        ZonedDateTime jakartaNow = ZonedDateTime.now(JAKARTA_ZONE);
+        LocalDate today = jakartaNow.toLocalDate();
+        LocalTime currentTime = jakartaNow.toLocalTime().truncatedTo(ChronoUnit.SECONDS);
+
+        System.out.println("Checkout - Jakarta time: " + jakartaNow);
+        System.out.println("Checkout - Today: " + today);
+        System.out.println("Checkout - Current time: " + currentTime);
+
+        // Find today's attendance record
+        Attendance attendance = attendanceRepository
+                .findByUserUserIdAndAttendanceDate(userId, today)
+                .orElseThrow(() -> new BadRequestException("You must check in first before checking out"));
+
+        // Check if already checked out
+        if (attendance.getCheckoutOut() != null) {
+            throw new BadRequestException("You have already checked out today");
+        }
+
+        // Validate checkout time (must be after 5:00 PM)
+        if (currentTime.isBefore(CHECK_OUT_DEADLINE)) {
+            throw new BadRequestException("You cannot check out before 5:00 PM");
+        }
+
+        // Determine checkout status based on date status
+        DateStatus dateStatus = attendance.getDateStatus();
+        CheckOutStatus checkoutStatus = determineCheckOutStatus(dateStatus, currentTime);
+
+        // Update attendance record
+        attendance.setCheckoutOut(currentTime);
+        attendance.setCheckoutStatus(checkoutStatus);
+
+        Attendance savedAttendance = attendanceRepository.save(attendance);
+
+        // Create response
+        CheckOutResponse response = new CheckOutResponse();
+        response.setAttendanceId(savedAttendance.getAttendanceId().toString());
+        response.setUserId(userId.toString());
+        response.setAttendanceDate(today.format(DATE_FORMATTER));
+        response.setCheckInTime(savedAttendance.getCheckIn().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+        response.setCheckOutTime(currentTime.format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+        response.setCheckInStatus(savedAttendance.getCheckinStatus().name());
+        response.setCheckOutStatus(checkoutStatus.name());
+        response.setDateStatus(dateStatus.name());
+        
+        // Set appropriate message
+        String message = generateCheckOutMessage(checkoutStatus, currentTime, dateStatus);
+        response.setMessage(message);
+
+        return response;
+    }
+
     private CheckInStatus determineCheckInStatus(LocalTime currentTime) {
         if (currentTime.isBefore(CHECK_IN_DEADLINE)) {
             return CheckInStatus.CHECKIN; // On time
@@ -87,11 +156,54 @@ public class AttendanceService {
         }
     }
 
+    private DateStatus determineDateStatus(LocalDate date) {
+        java.time.DayOfWeek dayOfWeek = date.getDayOfWeek();
+        
+        // Check if it's weekend (Saturday or Sunday)
+        if (dayOfWeek == java.time.DayOfWeek.SATURDAY || dayOfWeek == java.time.DayOfWeek.SUNDAY) {
+            return DateStatus.WEEKEND;
+        }
+        
+        // For now, we'll consider weekdays as regular workdays
+        // You can add more logic here for overtime detection if needed
+        // For example, check if it's a holiday, or if it's after certain hours
+        return DateStatus.WEEKDAY;
+    }
+
+    private CheckOutStatus determineCheckOutStatus(DateStatus dateStatus, LocalTime currentTime) {
+        switch (dateStatus) {
+            case WEEKDAY:
+                return CheckOutStatus.CHECKOUT; // Normal checkout on weekdays
+            case WEEKEND:
+                return CheckOutStatus.CHECKOUT; // Checkout on weekends
+            case OVERTIME:
+                return CheckOutStatus.CHECKOUT; // Checkout during overtime
+            default:
+                return CheckOutStatus.CHECKOUT;
+        }
+    }
+
     private String generateCheckInMessage(CheckInStatus checkinStatus, LocalTime currentTime) {
         if (checkinStatus == CheckInStatus.CHECKIN_LATE) {
             return "You checked in late at " + currentTime.format(DateTimeFormatter.ofPattern("HH:mm"));
         } else {
             return "You checked in on time at " + currentTime.format(DateTimeFormatter.ofPattern("HH:mm"));
+        }
+    }
+
+    private String generateCheckOutMessage(CheckOutStatus checkoutStatus, LocalTime currentTime, DateStatus dateStatus) {
+        String timeStr = currentTime.format(DateTimeFormatter.ofPattern("HH:mm"));
+        String dateType = dateStatus.name().toLowerCase();
+        
+        switch (checkoutStatus) {
+            case CHECKOUT:
+                return "You checked out successfully at " + timeStr + " on " + dateType;
+            case PERMISSION:
+                return "You checked out with permission at " + timeStr + " on " + dateType;
+            case MISSED_CHECKOUT:
+                return "You missed checkout on " + dateType;
+            default:
+                return "Checkout completed at " + timeStr;
         }
     }
 }

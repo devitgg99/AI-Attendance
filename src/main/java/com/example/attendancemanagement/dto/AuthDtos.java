@@ -140,6 +140,33 @@ public class AuthDtos {
         @JsonProperty("message")
         private String message;
     }
+
+    @Data
+    public static class CheckOutRequest {
+        // No additional fields needed for check-out
+    }
+
+    @Data
+    public static class CheckOutResponse {
+        @JsonProperty("attendance_id")
+        private String attendanceId;
+        @JsonProperty("user_id")
+        private String userId;
+        @JsonProperty("attendance_date")
+        private String attendanceDate;
+        @JsonProperty("check_in_time")
+        private String checkInTime;
+        @JsonProperty("check_out_time")
+        private String checkOutTime;
+        @JsonProperty("checkin_status")
+        private String checkInStatus;
+        @JsonProperty("checkout_status")
+        private String checkOutStatus;
+        @JsonProperty("date_status")
+        private String dateStatus;
+        @JsonProperty("message")
+        private String message;
+    }
 }
 
 
