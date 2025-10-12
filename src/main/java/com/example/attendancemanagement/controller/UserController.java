@@ -1,9 +1,11 @@
 package com.example.attendancemanagement.controller;
 
+import com.example.attendancemanagement.dto.ApiResponse;
 import com.example.attendancemanagement.entity.User;
 import com.example.attendancemanagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -66,8 +68,15 @@ public class UserController {
 
     @PostMapping("/register")
     @Operation(summary = "Register new user", description = "Register a new user account with validation. Default role is STUDENT if not specified.")
-    public ResponseEntity<UserInfoResponse> register(@RequestBody RegisterRequest request) {
-        return ResponseEntity.ok(authService.register(request));
+    public ResponseEntity<ApiResponse<UserInfoResponse>> register(@RequestBody RegisterRequest request) {
+        UserInfoResponse userInfo = authService.register(request);
+        ApiResponse<UserInfoResponse> response = ApiResponse.<UserInfoResponse>builder()
+                .success(true)
+                .message("User registered successfully")
+                .payload(userInfo)
+                .status(HttpStatus.CREATED)
+                .build();
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }
 
