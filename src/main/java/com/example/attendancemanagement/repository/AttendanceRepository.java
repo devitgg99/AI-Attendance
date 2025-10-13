@@ -37,6 +37,15 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         UUID userId, LocalDate startDate, LocalDate endDate);
     
     /**
+     * Find attendance records for a user within date range (simplified method name)
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findByUserUserIdAndAttendanceDateBetween(
+        UUID userId, LocalDate startDate, LocalDate endDate);
+    
+    /**
      * Find attendance records by check-in status
      */
     List<Attendance> findByCheckinStatusOrderByCheckInDesc(CheckInStatus checkinStatus);
@@ -269,6 +278,64 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
            "ORDER BY a.createdAt DESC")
     List<Attendance> findAbsentRecordsByDateStatus(
         @Param("dateStatus") com.example.attendancemanagement.enums.DateStatus dateStatus,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    // User-specific methods for attendance status filtering
+    
+    /**
+     * Find missed check-in records for specific user
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
+           "AND a.checkIn IS NULL " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findMissedCheckInRecordsByUser(
+        @Param("userId") UUID userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find missed check-out records for specific user
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
+           "AND a.checkIn IS NOT NULL " +
+           "AND a.checkoutOut IS NULL " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findMissedCheckOutRecordsByUser(
+        @Param("userId") UUID userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find present records for specific user
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
+           "AND a.checkIn IS NOT NULL " +
+           "AND a.checkoutOut IS NOT NULL " +
+           "AND a.checkinStatus = 'CHECKIN' " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findPresentRecordsByUser(
+        @Param("userId") UUID userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find absent records for specific user
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
+           "AND a.checkIn IS NULL " +
+           "AND a.dateStatus IN ('WEEKDAY', 'OVERTIME') " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findAbsentRecordsByUser(
+        @Param("userId") UUID userId,
         @Param("startDate") LocalDate startDate,
         @Param("endDate") LocalDate endDate
     );

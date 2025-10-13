@@ -40,13 +40,36 @@ public class OvertimeService {
 			throw new BadRequestException("Invalid date/time format. Use yyyy-MM-dd and HH:mm:ss");
 		}
 
+		// Validate request date is not in the past
+		LocalDate today = LocalDate.now();
+		if (requestDate.isBefore(today)) {
+			throw new BadRequestException("Overtime request date cannot be in the past");
+		}
+
 		if (endTime.isBefore(startTime)) {
 			throw new BadRequestException("end_time must be after start_time");
 		}
 
-		// Validate minimum duration of 2 hours
-		if (dto.getDuration() == null || dto.getDuration().compareTo(BigDecimal.valueOf(2)) < 0) {
-			throw new BadRequestException("Duration must be at least 2 hours");
+		// Calculate actual duration from start and end times
+		long minutesBetween = java.time.Duration.between(startTime, endTime).toMinutes();
+		BigDecimal calculatedDuration = BigDecimal.valueOf(minutesBetween).divide(BigDecimal.valueOf(60), 2, java.math.RoundingMode.HALF_UP);
+		
+		// Validate minimum duration of 2 hours (1h:59min counts as 2 hours)
+		if (calculatedDuration.compareTo(BigDecimal.valueOf(1.99)) < 0) {
+			throw new BadRequestException("Duration must be at least 2 hours (calculated: " + calculatedDuration + " hours)");
+		}
+		
+		// Validate provided duration matches calculated duration (allow 1 minute tolerance)
+		BigDecimal providedDuration = dto.getDuration();
+		if (providedDuration == null) {
+			throw new BadRequestException("Duration is required");
+		}
+		
+		BigDecimal tolerance = BigDecimal.valueOf(0.02); // 1 minute tolerance
+		BigDecimal difference = providedDuration.subtract(calculatedDuration).abs();
+		
+		if (difference.compareTo(tolerance) > 0) {
+			throw new BadRequestException("Provided duration (" + providedDuration + " hours) does not match calculated duration (" + calculatedDuration + " hours) from start/end times");
 		}
 
 		Overtime overtime = new Overtime();

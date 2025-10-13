@@ -70,17 +70,17 @@ public class AttendanceController {
 
     @GetMapping("/history")
     @Operation(summary = "Get attendance history", 
-               description = "Get attendance records by status. Optional query parameters: status, startDate, endDate. Default date range: first of current month to end of current month.")
+               description = "Get current user's attendance records by status. Optional query parameters: status, startDate, endDate. Default date range: first of current month to end of current month.")
     public ResponseEntity<ApiResponse<AttendanceStatusResponse>> getAttendanceHistory(
             @RequestParam(required = false) AttendanceStatus status,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             HttpServletRequest httpRequest) {
         
-        // Get user ID from JWT token (for admin access control)
-        tokenUtil.getUserIdFromToken(httpRequest);
+        // Get user ID from JWT token to filter by current user only
+        UUID userIdFromToken = tokenUtil.getUserIdFromToken(httpRequest);
         
-        AttendanceStatusResponse statusResponse = attendanceService.getAttendanceHistory(status, startDate, endDate);
+        AttendanceStatusResponse statusResponse = attendanceService.getAttendanceHistory(userIdFromToken, status, startDate, endDate);
         
         ApiResponse<AttendanceStatusResponse> response = ApiResponse.<AttendanceStatusResponse>builder()
                 .success(true)
@@ -94,15 +94,15 @@ public class AttendanceController {
 
     @GetMapping("/date")
     @Operation(summary = "Get attendance by specific date", 
-               description = "Get all attendance records for a specific date. Defaults to current date if no date provided.")
+               description = "Get current user's attendance record for a specific date. Defaults to current date if no date provided.")
     public ResponseEntity<ApiResponse<AttendanceStatusResponse>> getAttendanceByDate(
             @RequestParam(required = false) String date,
             HttpServletRequest httpRequest) {
         
-        // Get user ID from JWT token (for admin access control)
-        tokenUtil.getUserIdFromToken(httpRequest);
+        // Get user ID from JWT token to filter by current user only
+        UUID userIdFromToken = tokenUtil.getUserIdFromToken(httpRequest);
         
-        AttendanceStatusResponse statusResponse = attendanceService.getAttendanceByDate(date);
+        AttendanceStatusResponse statusResponse = attendanceService.getAttendanceByDate(userIdFromToken, date);
         
         ApiResponse<AttendanceStatusResponse> response = ApiResponse.<AttendanceStatusResponse>builder()
                 .success(true)

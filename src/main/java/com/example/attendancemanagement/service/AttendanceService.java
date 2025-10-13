@@ -213,7 +213,7 @@ public class AttendanceService {
     }
 
 
-    public AttendanceStatusResponse getAttendanceHistory(AttendanceStatus status, String startDate, String endDate) {
+    public AttendanceStatusResponse getAttendanceHistory(UUID userId, AttendanceStatus status, String startDate, String endDate) {
         // Parse dates with default logic
         LocalDate start;
         LocalDate end;
@@ -233,14 +233,14 @@ public class AttendanceService {
             end = now.withDayOfMonth(now.lengthOfMonth()); // Last day of current month
         }
         
-        // Get attendance records based on status filter
+        // Get attendance records based on status filter for the specific user
         List<Attendance> attendanceList;
         if (status != null) {
-            // Filter by specific status
-            attendanceList = getAttendanceByStatus(status, start, end);
+            // Filter by specific status and user
+            attendanceList = getAttendanceByStatusAndUser(userId, status, start, end);
         } else {
-            // Get all attendance records in the date range
-            attendanceList = attendanceRepository.findAllAttendanceRecordsInDateRange(start, end);
+            // Get all attendance records in the date range for the specific user
+            attendanceList = attendanceRepository.findByUserUserIdAndAttendanceDateBetween(userId, start, end);
         }
         
         // Convert to DTOs
@@ -254,24 +254,24 @@ public class AttendanceService {
         return response;
     }
     
-    private List<Attendance> getAttendanceByStatus(AttendanceStatus status, LocalDate startDate, LocalDate endDate) {
+    private List<Attendance> getAttendanceByStatusAndUser(UUID userId, AttendanceStatus status, LocalDate startDate, LocalDate endDate) {
         switch (status) {
             case MISSED_CHECKIN:
-                return attendanceRepository.findMissedCheckInRecords(startDate, endDate);
+                return attendanceRepository.findMissedCheckInRecordsByUser(userId, startDate, endDate);
             case CHECKIN_LATE:
-                return attendanceRepository.findLateCheckInRecords(startDate, endDate);
+                return attendanceRepository.findLateCheckInRecordsByUser(userId, startDate, endDate);
             case ABSENT:
-                return attendanceRepository.findAbsentRecords(startDate, endDate);
+                return attendanceRepository.findAbsentRecordsByUser(userId, startDate, endDate);
             case MISSED_CHECKOUT:
-                return attendanceRepository.findMissedCheckOutRecords(startDate, endDate);
+                return attendanceRepository.findMissedCheckOutRecordsByUser(userId, startDate, endDate);
             case PRESENT:
-                return attendanceRepository.findPresentRecords(startDate, endDate);
+                return attendanceRepository.findPresentRecordsByUser(userId, startDate, endDate);
             default:
-                return attendanceRepository.findAllAttendanceRecordsInDateRange(startDate, endDate);
+                return attendanceRepository.findByUserUserIdAndAttendanceDateBetween(userId, startDate, endDate);
         }
     }
 
-    public AttendanceStatusResponse getAttendanceByDate(String date) {
+    public AttendanceStatusResponse getAttendanceByDate(UUID userId, String date) {
         // Parse date or use current date as default
         LocalDate targetDate;
         if (date != null && !date.trim().isEmpty()) {
@@ -285,13 +285,14 @@ public class AttendanceService {
             targetDate = LocalDate.now();
         }
         
-        // Get all attendance records for the specified date
-        List<Attendance> attendanceList = attendanceRepository.findByAttendanceDateOrderByCreatedAtDesc(targetDate);
+        // Get attendance record for the specific user and date
+        Optional<Attendance> attendance = attendanceRepository.findByUserUserIdAndAttendanceDate(userId, targetDate);
         
         // Convert to DTOs
-        List<AttendanceRecord> attendanceRecords = attendanceList.stream()
+        List<AttendanceRecord> attendanceRecords = attendance
             .map(this::convertToAttendanceRecord)
-            .collect(Collectors.toList());
+            .map(List::of)
+            .orElse(List.of());
         
         AttendanceStatusResponse response = new AttendanceStatusResponse();
         response.setAttendanceRecords(attendanceRecords);
