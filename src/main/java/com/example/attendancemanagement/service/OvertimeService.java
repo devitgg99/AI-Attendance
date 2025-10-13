@@ -37,13 +37,19 @@ public class OvertimeService {
 			startTime = LocalTime.parse(dto.getStartTime());
 			endTime = LocalTime.parse(dto.getEndTime());
 		} catch (Exception e) {
-			throw new BadRequestException("Invalid date/time format. Use yyyy-MM-dd and HH:mm:ss");
+			throw new BadRequestException("Invalid date/time format. Use dd-MM-yyyy and HH:mm:ss");
 		}
 
 		// Validate request date is not in the past
 		LocalDate today = LocalDate.now();
 		if (requestDate.isBefore(today)) {
 			throw new BadRequestException("Overtime request date cannot be in the past");
+		}
+
+		// Check if user already has an overtime request for the same date
+		boolean existingOvertimeExists = overtimeRepository.existsByUserUserIdAndRequestDate(userId, requestDate);
+		if (existingOvertimeExists) {
+			throw new BadRequestException("You have already submitted an overtime request for this date");
 		}
 
 		if (endTime.isBefore(startTime)) {
@@ -72,6 +78,9 @@ public class OvertimeService {
 			throw new BadRequestException("Provided duration (" + providedDuration + " hours) does not match calculated duration (" + calculatedDuration + " hours) from start/end times");
 		}
 
+		// Validate weekday overtime time restrictions
+		validateWeekdayOvertimeTime(requestDate, startTime, endTime);
+
 		Overtime overtime = new Overtime();
 		overtime.setUser(user);
 		overtime.setRequestDate(requestDate);
@@ -88,7 +97,7 @@ public class OvertimeService {
 		OvertimeResponse res = new OvertimeResponse();
 		res.setOvertimeId(saved.getOvertimeId().toString());
 		res.setUserId(userId.toString());
-		res.setRequestDate(saved.getRequestDate().toString());
+		res.setRequestDate(saved.getRequestDate().format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")));
 		res.setStartTime(saved.getStartTime().toString());
 		res.setEndTime(saved.getEndTime().toString());
 		res.setDuration(saved.getDuration().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString());
@@ -96,6 +105,27 @@ public class OvertimeService {
 		res.setObjective(saved.getObjective());
 		res.setStatus(saved.getStatus().name());
 		return res;
+	}
+
+	private void validateWeekdayOvertimeTime(LocalDate requestDate, LocalTime startTime, LocalTime endTime) {
+		// Check if it's a weekday (Monday to Friday)
+		java.time.DayOfWeek dayOfWeek = requestDate.getDayOfWeek();
+		boolean isWeekday = dayOfWeek != java.time.DayOfWeek.SATURDAY && dayOfWeek != java.time.DayOfWeek.SUNDAY;
+		
+		if (isWeekday) {
+			LocalTime allowedStartTime = LocalTime.of(18, 0); // 6:00 PM
+			LocalTime allowedEndTime = LocalTime.of(21, 0);   // 9:00 PM
+			
+			// Check if start time is before 6:00 PM
+			if (startTime.isBefore(allowedStartTime)) {
+				throw new BadRequestException("Weekday overtime can only start from 6:00 PM onwards");
+			}
+			
+			// Check if end time is after 9:00 PM
+			if (endTime.isAfter(allowedEndTime)) {
+				throw new BadRequestException("Weekday overtime can only end by 9:00 PM");
+			}
+		}
 	}
 }
 

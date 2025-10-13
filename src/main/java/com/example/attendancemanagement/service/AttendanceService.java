@@ -10,8 +10,10 @@ import com.example.attendancemanagement.entity.User;
 import com.example.attendancemanagement.enums.CheckInStatus;
 import com.example.attendancemanagement.enums.CheckOutStatus;
 import com.example.attendancemanagement.enums.DateStatus;
+import com.example.attendancemanagement.enums.OvertimeStatus;
 import com.example.attendancemanagement.exception.BadRequestException;
 import com.example.attendancemanagement.repository.AttendanceRepository;
+import com.example.attendancemanagement.repository.OvertimeRepository;
 import com.example.attendancemanagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -36,10 +38,14 @@ public class AttendanceService {
 
     private final AttendanceRepository attendanceRepository;
     private final UserRepository userRepository;
+    private final OvertimeRepository overtimeRepository;
     
     private static final LocalTime CHECK_IN_DEADLINE = LocalTime.of(8, 1); // 8:01 AM
     private static final LocalTime CHECK_OUT_DEADLINE = LocalTime.of(17, 0); // 5:00 PM
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final LocalTime EARLIEST_CHECKIN_TIME = LocalTime.of(6, 0); // 6:00 AM
+    private static final LocalTime OVERTIME_CHECKIN_TIME = LocalTime.of(17, 0); // 5:00 PM
+    private static final LocalTime MISSED_CHECKOUT_TIME = LocalTime.of(18, 0); // 6:00 PM
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final ZoneId JAKARTA_ZONE = ZoneId.of("Asia/Jakarta");
 
@@ -65,6 +71,9 @@ public class AttendanceService {
         if (existingAttendance.isPresent()) {
             throw new BadRequestException("You have already checked in today");
         }
+
+        // Validate check-in time restrictions
+        validateCheckInTime(userId, currentTime, today);
 
         // Determine check-in status based on time
         CheckInStatus checkinStatus = determineCheckInStatus(currentTime);
@@ -120,10 +129,8 @@ public class AttendanceService {
             throw new BadRequestException("You have already checked out today");
         }
 
-        // Validate checkout time (must be after 5:00 PM)
-        if (currentTime.isBefore(CHECK_OUT_DEADLINE)) {
-            throw new BadRequestException("You cannot check out before 5:00 PM");
-        }
+        // Validate checkout time restrictions
+        validateCheckOutTime(userId, currentTime, today);
 
         // Determine checkout status based on date status
         DateStatus dateStatus = attendance.getDateStatus();
@@ -176,6 +183,11 @@ public class AttendanceService {
     }
 
     private CheckOutStatus determineCheckOutStatus(DateStatus dateStatus, LocalTime currentTime) {
+        // If checkout is after 6:00 PM, it's considered missed checkout
+        if (currentTime.isAfter(MISSED_CHECKOUT_TIME)) {
+            return CheckOutStatus.MISSED_CHECKOUT;
+        }
+        
         switch (dateStatus) {
             case WEEKDAY:
                 return CheckOutStatus.CHECKOUT; // Normal checkout on weekdays
@@ -212,6 +224,59 @@ public class AttendanceService {
         }
     }
 
+    private void validateCheckInTime(UUID userId, LocalTime currentTime, LocalDate today) {
+        // Rule 1: Check-in is only allowed from 6:00 AM onwards
+        if (currentTime.isBefore(EARLIEST_CHECKIN_TIME)) {
+            throw new BadRequestException("Check-in is only allowed from 6:00 AM onwards");
+        }
+
+        // Rule 2: If checking in after 5:00 PM, must have approved overtime request
+        if (currentTime.isAfter(OVERTIME_CHECKIN_TIME) || currentTime.equals(OVERTIME_CHECKIN_TIME)) {
+            // Check if user has approved overtime request for today
+            Optional<com.example.attendancemanagement.entity.Overtime> approvedOvertime = 
+                overtimeRepository.findByUserUserIdAndRequestDate(userId, today);
+            
+            if (approvedOvertime.isEmpty()) {
+                throw new BadRequestException("Check-in after 5:00 PM requires an approved overtime request for today");
+            }
+            
+            if (approvedOvertime.get().getStatus() != OvertimeStatus.APPROVED) {
+                throw new BadRequestException("Check-in after 5:00 PM requires an approved overtime request. Current status: " + 
+                    approvedOvertime.get().getStatus().getDisplayName());
+            }
+        }
+    }
+
+    private void validateCheckOutTime(UUID userId, LocalTime currentTime, LocalDate today) {
+        // Rule 1: Regular checkout must be after 5:00 PM
+        if (currentTime.isBefore(CHECK_OUT_DEADLINE)) {
+            throw new BadRequestException("You cannot check out before 5:00 PM");
+        }
+
+        // Rule 2: If checking out after 6:00 PM, must have approved overtime request
+        if (currentTime.isAfter(MISSED_CHECKOUT_TIME) || currentTime.equals(MISSED_CHECKOUT_TIME)) {
+            // Check if user has approved overtime request for today
+            Optional<com.example.attendancemanagement.entity.Overtime> approvedOvertime = 
+                overtimeRepository.findByUserUserIdAndRequestDate(userId, today);
+            
+            if (approvedOvertime.isEmpty()) {
+                throw new BadRequestException("Check-out after 6:00 PM requires an approved overtime request for today");
+            }
+            
+            if (approvedOvertime.get().getStatus() != OvertimeStatus.APPROVED) {
+                throw new BadRequestException("Check-out after 6:00 PM requires an approved overtime request. Current status: " + 
+                    approvedOvertime.get().getStatus().getDisplayName());
+            }
+
+            // Rule 3: Cannot check out before the end time of approved overtime request
+            LocalTime overtimeEndTime = approvedOvertime.get().getEndTime();
+            if (currentTime.isBefore(overtimeEndTime)) {
+                throw new BadRequestException("You cannot check out before the end time of your approved overtime request (" + 
+                    overtimeEndTime.format(DateTimeFormatter.ofPattern("HH:mm")) + ")");
+            }
+        }
+    }
+
 
     public AttendanceStatusResponse getAttendanceHistory(UUID userId, AttendanceStatus status, String startDate, String endDate) {
         // Parse dates with default logic
@@ -224,7 +289,7 @@ public class AttendanceService {
                 start = LocalDate.parse(startDate);
                 end = LocalDate.parse(endDate);
             } catch (Exception e) {
-                throw new BadRequestException("Invalid date format. Please use yyyy-MM-dd format.");
+                throw new BadRequestException("Invalid date format. Please use dd-MM-yyyy format.");
             }
         } else {
             // Use default: first of current month to end of current month
@@ -278,7 +343,7 @@ public class AttendanceService {
             try {
                 targetDate = LocalDate.parse(date);
             } catch (Exception e) {
-                throw new BadRequestException("Invalid date format. Please use yyyy-MM-dd format.");
+                throw new BadRequestException("Invalid date format. Please use dd-MM-yyyy format.");
             }
         } else {
             // Use current date as default

@@ -38,6 +38,7 @@ public class AuthController {
 
     @PostMapping("/refresh")
     @Operation(summary = "Refresh token", description = "Generate new access token using valid refresh token")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<TokenResponse>> refresh(@Valid @RequestBody RefreshRequest request) {
         TokenResponse tokenResponse = authService.refresh(request);
         ApiResponse<TokenResponse> response = ApiResponse.<TokenResponse>builder()
@@ -51,6 +52,7 @@ public class AuthController {
 
     @PostMapping("/logout")
     @Operation(summary = "User logout", description = "Deactivate user session using refresh token")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<Void>> logout(@Valid @RequestBody LogoutRequest request) {
         authService.logout(request);
         ApiResponse<Void> response = ApiResponse.<Void>builder()
@@ -64,6 +66,7 @@ public class AuthController {
 
     @PostMapping("/change-password/{userId}")
     @Operation(summary = "Change password", description = "Change user password with old password verification")
+    @io.swagger.v3.oas.annotations.security.SecurityRequirement(name = "bearerAuth")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Parameter(description = "User ID") @PathVariable UUID userId, 
             @Valid @RequestBody ChangePasswordRequest request) {

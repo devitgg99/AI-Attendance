@@ -10,6 +10,7 @@ import com.example.attendancemanagement.exception.UnauthorizedException;
 import com.example.attendancemanagement.repository.UserRepository;
 import com.example.attendancemanagement.repository.UserSessionRepository;
 import com.example.attendancemanagement.security.JwtTokenService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,22 +18,29 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 
 @Service
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
     private final UserSessionRepository userSessionRepository;
     private final JwtTokenService jwtTokenService;
     private final FirebaseService firebaseService;
+    private final OtpService otpService;
+    private final EmailService emailService;
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public AuthService(UserRepository userRepository,
                        UserSessionRepository userSessionRepository,
                        JwtTokenService jwtTokenService,
-                       FirebaseService firebaseService) {
+                       FirebaseService firebaseService,
+                       OtpService otpService,
+                       EmailService emailService) {
         this.userRepository = userRepository;
         this.userSessionRepository = userSessionRepository;
         this.jwtTokenService = jwtTokenService;
         this.firebaseService = firebaseService;
+        this.otpService = otpService;
+        this.emailService = emailService;
     }
 
     @Transactional
@@ -233,27 +241,22 @@ public class AuthService {
     public void requestForgotPassword(ForgotPasswordRequest req) {
         User user = userRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new NotFoundException("User not found"));
-        String pin = String.format("%06d", new java.util.Random().nextInt(1_000_000));
         
-        // Store PIN hash in user session
-        Optional<UserSession> existingSession = userSessionRepository.findTopByUserUserIdOrderByCreatedAtDesc(user.getUserId());
-        if (existingSession.isPresent()) {
-            UserSession session = existingSession.get();
-            session.setPinHarsh(passwordEncoder.encode(pin));
-            userSessionRepository.save(session);
-        } else {
-            // Create new session for PIN storage
-            UserSession session = new UserSession();
-            session.setUser(user);
-            session.setPinHarsh(passwordEncoder.encode(pin));
-            userSessionRepository.save(session);
+        // Generate OTP using Redis service
+        String otp = otpService.generateOtp(req.getEmail());
+        
+        // Send OTP via email (with fallback handling)
+        try {
+            emailService.sendOtpEmail(req.getEmail(), otp);
+        } catch (Exception e) {
+            log.warn("Email sending failed, continuing with FCM fallback: {}", e.getMessage());
         }
         
-        // Send PIN via FCM if available
+        // Also send via FCM if available (fallback)
         Optional<UserSession> sessionWithFcm = userSessionRepository.findTopByUserUserIdOrderByCreatedAtDesc(user.getUserId());
         sessionWithFcm.ifPresent(session -> {
             if (session.getFcmToken() != null && !session.getFcmToken().isBlank()) {
-                firebaseService.sendNotification(session.getFcmToken(), "Password Reset PIN", "PIN: " + pin, Map.of());
+                firebaseService.sendNotification(session.getFcmToken(), "Password Reset OTP", "OTP: " + otp, Map.of());
             }
         });
     }
@@ -263,20 +266,21 @@ public class AuthService {
         User user = userRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new NotFoundException("User not found"));
         
-        // Find session with PIN
-        Optional<UserSession> sessionWithPin = userSessionRepository.findTopByUserUserIdOrderByCreatedAtDesc(user.getUserId());
-        if (sessionWithPin.isEmpty() || sessionWithPin.get().getPinHarsh() == null || 
-            !passwordEncoder.matches(req.getPin(), sessionWithPin.get().getPinHarsh())) {
-            throw new UnauthorizedException("Invalid PIN");
+        // Verify OTP using Redis service
+        if (!otpService.verifyOtp(req.getEmail(), req.getPin())) {
+            throw new UnauthorizedException("Invalid or expired OTP");
         }
         
+        // Update password
         user.setPassword(passwordEncoder.encode(req.getNewPassword()));
         userRepository.save(user);
         
-        // Clear PIN from session
-        UserSession session = sessionWithPin.get();
-        session.setPinHarsh(null);
-        userSessionRepository.save(session);
+        // Send confirmation email (with fallback handling)
+        try {
+            emailService.sendPasswordResetConfirmation(req.getEmail());
+        } catch (Exception e) {
+            log.warn("Confirmation email sending failed: {}", e.getMessage());
+        }
     }
 }
 

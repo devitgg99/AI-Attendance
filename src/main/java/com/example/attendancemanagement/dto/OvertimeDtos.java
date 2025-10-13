@@ -12,7 +12,7 @@ public class OvertimeDtos {
 	public static class RequestOvertime {
 		@JsonProperty("request_date")
 		@NotBlank
-		private String requestDate; // yyyy-MM-dd
+		private String requestDate; // dd-MM-yyyy
 		@JsonProperty("start_time")
 		@NotBlank
 		private String startTime; // HH:mm:ss
