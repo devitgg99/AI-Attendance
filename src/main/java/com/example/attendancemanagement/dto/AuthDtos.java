@@ -64,38 +64,6 @@ public class AuthDtos {
         private String newPassword;
     }
 
-    // User info structure - each user has exactly one role
-    // The user_info JSONB field will contain role-specific information
-    
-    // Example formats for user_info JSONB field:
-    
-    // Admin user_info format:
-    // {
-    //   "role": "admin"
-    // }
-    
-    // Staff user_info format:
-    // {
-    //   "role": "staff",
-    //   "phone": "098765432",
-    //   "date_of_birth": "2002-09-15",
-    //   "place_of_birth": "Siem Reap",
-    //   "phone_number": "099999999",
-    //   "image_url": "http://example.com/staff.jpg",
-    //   "current_address": "phnom penh, dong kao",
-    //   "position": "IT instructor"
-    // }
-    
-    // Student user_info format:
-    // {
-    //   "role": "student",
-    //   "university": "royal university of phnom penh",
-    //   "date_of_birth": "2002-09-15",
-    //   "place_of_birth": "Siem Reap",
-    //   "phone_number": "099999999",
-    //   "image_url": "http://example.com/student.jpg"
-    // }
-
     @Data
     public static class RegisterRequest {
         @Email @NotBlank
@@ -122,11 +90,6 @@ public class AuthDtos {
     }
 
     @Data
-    public static class CheckInRequest {
-        // No additional fields needed for check-in
-    }
-
-    @Data
     public static class CheckInResponse {
         @JsonProperty("attendance_id")
         private String attendanceId;
@@ -140,11 +103,6 @@ public class AuthDtos {
         private String checkInStatus;
         @JsonProperty("message")
         private String message;
-    }
-
-    @Data
-    public static class CheckOutRequest {
-        // No additional fields needed for check-out
     }
 
     @Data

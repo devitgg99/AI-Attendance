@@ -115,3 +115,4 @@ public interface OvertimeRepository extends JpaRepository<Overtime, UUID> {
     @Query("SELECT o FROM Overtime o WHERE o.user.userId = :userId AND o.requestDate = :date")
     Optional<Overtime> findByUserUserIdAndRequestDate(@Param("userId") UUID userId, @Param("date") LocalDate date);
 }
+
