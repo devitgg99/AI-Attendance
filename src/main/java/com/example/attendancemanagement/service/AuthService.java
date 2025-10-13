@@ -128,6 +128,7 @@ public class AuthService {
         }
 
         TokenResponse resp = new TokenResponse();
+        resp.setUerRole(userRole);
         resp.setAccessToken(access);
         resp.setRefreshToken(refresh);
         return resp;

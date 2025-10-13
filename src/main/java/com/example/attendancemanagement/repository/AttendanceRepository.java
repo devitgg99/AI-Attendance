@@ -88,4 +88,188 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
         @Param("endDate") LocalDate endDate,
         @Param("checkinStatus") CheckInStatus checkinStatus
     );
+
+    /**
+     * Find all attendance records with late check-in status
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkinStatus = 'CHECKIN_LATE' " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findLateCheckInRecords(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find all attendance records with late check-in status for specific user
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.user.userId = :userId " +
+           "AND a.checkinStatus = 'CHECKIN_LATE' " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findLateCheckInRecordsByUser(
+        @Param("userId") UUID userId,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find all attendance records with specific date status
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.dateStatus = :dateStatus " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findAttendanceByDateStatus(
+        @Param("dateStatus") com.example.attendancemanagement.enums.DateStatus dateStatus,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find all attendance records with late check-in and specific date status
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkinStatus = 'CHECKIN_LATE' " +
+           "AND a.dateStatus = :dateStatus " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findLateCheckInRecordsByDateStatus(
+        @Param("dateStatus") com.example.attendancemanagement.enums.DateStatus dateStatus,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Count total attendance records in date range
+     */
+    @Query("SELECT COUNT(a) FROM Attendance a WHERE DATE(a.createdAt) BETWEEN :startDate AND :endDate")
+    long countAttendanceRecordsInDateRange(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Count late check-in records in date range
+     */
+    @Query("SELECT COUNT(a) FROM Attendance a WHERE a.checkinStatus = 'CHECKIN_LATE' " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate")
+    long countLateCheckInRecordsInDateRange(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find all attendance records in date range
+     */
+    @Query("SELECT a FROM Attendance a WHERE DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findAllAttendanceRecordsInDateRange(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find attendance records with missed check-in (no check-in record exists)
+     * This finds users who should have checked in but didn't
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkIn IS NULL " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findMissedCheckInRecords(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find attendance records with missed check-in for specific date status
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkIn IS NULL " +
+           "AND a.dateStatus = :dateStatus " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findMissedCheckInRecordsByDateStatus(
+        @Param("dateStatus") com.example.attendancemanagement.enums.DateStatus dateStatus,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find attendance records with missed check-out (checked in but didn't check out)
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkIn IS NOT NULL " +
+           "AND a.checkoutOut IS NULL " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findMissedCheckOutRecords(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find attendance records with missed check-out for specific date status
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkIn IS NOT NULL " +
+           "AND a.checkoutOut IS NULL " +
+           "AND a.dateStatus = :dateStatus " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findMissedCheckOutRecordsByDateStatus(
+        @Param("dateStatus") com.example.attendancemanagement.enums.DateStatus dateStatus,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find present attendance records (checked in on time and completed checkout)
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkIn IS NOT NULL " +
+           "AND a.checkoutOut IS NOT NULL " +
+           "AND a.checkinStatus = 'CHECKIN' " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findPresentRecords(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find present attendance records for specific date status
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkIn IS NOT NULL " +
+           "AND a.checkoutOut IS NOT NULL " +
+           "AND a.checkinStatus = 'CHECKIN' " +
+           "AND a.dateStatus = :dateStatus " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findPresentRecordsByDateStatus(
+        @Param("dateStatus") com.example.attendancemanagement.enums.DateStatus dateStatus,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find absent records (users who didn't check in at all on work days)
+     * This is a complex query that would need to compare expected work days
+     * For now, we'll use missed check-in as a proxy
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkIn IS NULL " +
+           "AND a.dateStatus IN ('WEEKDAY', 'OVERTIME') " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findAbsentRecords(
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
+
+    /**
+     * Find absent records for specific date status
+     */
+    @Query("SELECT a FROM Attendance a WHERE a.checkIn IS NULL " +
+           "AND a.dateStatus = :dateStatus " +
+           "AND DATE(a.createdAt) BETWEEN :startDate AND :endDate " +
+           "ORDER BY a.createdAt DESC")
+    List<Attendance> findAbsentRecordsByDateStatus(
+        @Param("dateStatus") com.example.attendancemanagement.enums.DateStatus dateStatus,
+        @Param("startDate") LocalDate startDate,
+        @Param("endDate") LocalDate endDate
+    );
 }

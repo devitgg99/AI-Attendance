@@ -3,6 +3,8 @@ package com.example.attendancemanagement.controller;
 import com.example.attendancemanagement.dto.ApiResponse;
 import com.example.attendancemanagement.dto.AuthDtos.CheckInResponse;
 import com.example.attendancemanagement.dto.AuthDtos.CheckOutResponse;
+import com.example.attendancemanagement.dto.AuthDtos.AttendanceStatusResponse;
+import com.example.attendancemanagement.enums.AttendanceStatus;
 import com.example.attendancemanagement.service.AttendanceService;
 import com.example.attendancemanagement.util.TokenUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -31,9 +33,9 @@ public class AttendanceController {
             HttpServletRequest httpRequest) {
         
         // Get user ID from JWT token
-        UUID userId = tokenUtil.getUserIdFromToken(httpRequest);
-        
-        CheckInResponse checkInResponse = attendanceService.checkIn(userId);
+        UUID userIdFromToken = tokenUtil.getUserIdFromToken(httpRequest);
+
+        CheckInResponse checkInResponse = attendanceService.checkIn(userIdFromToken);
         
         ApiResponse<CheckInResponse> response = ApiResponse.<CheckInResponse>builder()
                 .success(true)
@@ -51,9 +53,9 @@ public class AttendanceController {
             HttpServletRequest httpRequest) {
         
         // Get user ID from JWT token
-        UUID userId = tokenUtil.getUserIdFromToken(httpRequest);
+        UUID userIdFromToken = tokenUtil.getUserIdFromToken(httpRequest);
         
-        CheckOutResponse checkOutResponse = attendanceService.checkOut(userId);
+        CheckOutResponse checkOutResponse = attendanceService.checkOut(userIdFromToken);
         
         ApiResponse<CheckOutResponse> response = ApiResponse.<CheckOutResponse>builder()
                 .success(true)
@@ -64,5 +66,53 @@ public class AttendanceController {
         
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }
+
+
+    @GetMapping("/history")
+    @Operation(summary = "Get attendance history", 
+               description = "Get attendance records by status. Optional query parameters: status, startDate, endDate. Default date range: first of current month to end of current month.")
+    public ResponseEntity<ApiResponse<AttendanceStatusResponse>> getAttendanceHistory(
+            @RequestParam(required = false) AttendanceStatus status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            HttpServletRequest httpRequest) {
+        
+        // Get user ID from JWT token (for admin access control)
+        tokenUtil.getUserIdFromToken(httpRequest);
+        
+        AttendanceStatusResponse statusResponse = attendanceService.getAttendanceHistory(status, startDate, endDate);
+        
+        ApiResponse<AttendanceStatusResponse> response = ApiResponse.<AttendanceStatusResponse>builder()
+                .success(true)
+                .message("Attendance history retrieved successfully")
+                .payload(statusResponse)
+                .status(HttpStatus.OK)
+                .build();
+        
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @GetMapping("/date")
+    @Operation(summary = "Get attendance by specific date", 
+               description = "Get all attendance records for a specific date. Defaults to current date if no date provided.")
+    public ResponseEntity<ApiResponse<AttendanceStatusResponse>> getAttendanceByDate(
+            @RequestParam(required = false) String date,
+            HttpServletRequest httpRequest) {
+        
+        // Get user ID from JWT token (for admin access control)
+        tokenUtil.getUserIdFromToken(httpRequest);
+        
+        AttendanceStatusResponse statusResponse = attendanceService.getAttendanceByDate(date);
+        
+        ApiResponse<AttendanceStatusResponse> response = ApiResponse.<AttendanceStatusResponse>builder()
+                .success(true)
+                .message("Attendance records retrieved successfully for date: " + (date != null ? date : "current date"))
+                .payload(statusResponse)
+                .status(HttpStatus.OK)
+                .build();
+        
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
 
 }

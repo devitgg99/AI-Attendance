@@ -22,6 +22,7 @@ public class AuthDtos {
 
     @Data
     public static class TokenResponse {
+        private String uerRole;
         private String accessToken;
         private String refreshToken;
     }
@@ -166,6 +167,35 @@ public class AuthDtos {
         private String dateStatus;
         @JsonProperty("message")
         private String message;
+    }
+
+
+    @Data
+    public static class AttendanceRecord {
+        @JsonProperty("attendance_id")
+        private String attendanceId;
+        @JsonProperty("attendance_date")
+        private String attendanceDate;
+        @JsonProperty("check_in_time")
+        private String checkInTime;
+        @JsonProperty("check_out_time")
+        private String checkOutTime;
+        @JsonProperty("checkin_status")
+        private String checkInStatus;
+        @JsonProperty("checkout_status")
+        private String checkOutStatus;
+        @JsonProperty("date_status")
+        private String dateStatus;
+        @JsonProperty("checkin_datetime")
+        private String checkInDateTime;
+        @JsonProperty("checkout_datetime")
+        private String checkOutDateTime;
+    }
+
+    @Data
+    public static class AttendanceStatusResponse {
+        @JsonProperty("attendance_records")
+        private java.util.List<AttendanceRecord> attendanceRecords;
     }
 }
 

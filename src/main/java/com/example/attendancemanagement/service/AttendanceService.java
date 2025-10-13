@@ -2,6 +2,9 @@ package com.example.attendancemanagement.service;
 
 import com.example.attendancemanagement.dto.AuthDtos.CheckInResponse;
 import com.example.attendancemanagement.dto.AuthDtos.CheckOutResponse;
+import com.example.attendancemanagement.dto.AuthDtos.AttendanceStatusResponse;
+import com.example.attendancemanagement.dto.AuthDtos.AttendanceRecord;
+import com.example.attendancemanagement.enums.AttendanceStatus;
 import com.example.attendancemanagement.entity.Attendance;
 import com.example.attendancemanagement.entity.User;
 import com.example.attendancemanagement.enums.CheckInStatus;
@@ -21,8 +24,10 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -206,4 +211,127 @@ public class AttendanceService {
                 return "Checkout completed at " + timeStr;
         }
     }
+
+
+    public AttendanceStatusResponse getAttendanceHistory(AttendanceStatus status, String startDate, String endDate) {
+        // Parse dates with default logic
+        LocalDate start;
+        LocalDate end;
+        
+        if (startDate != null && endDate != null) {
+            // User provided both dates
+            try {
+                start = LocalDate.parse(startDate);
+                end = LocalDate.parse(endDate);
+            } catch (Exception e) {
+                throw new BadRequestException("Invalid date format. Please use yyyy-MM-dd format.");
+            }
+        } else {
+            // Use default: first of current month to end of current month
+            LocalDate now = LocalDate.now();
+            start = now.withDayOfMonth(1); // First day of current month
+            end = now.withDayOfMonth(now.lengthOfMonth()); // Last day of current month
+        }
+        
+        // Get attendance records based on status filter
+        List<Attendance> attendanceList;
+        if (status != null) {
+            // Filter by specific status
+            attendanceList = getAttendanceByStatus(status, start, end);
+        } else {
+            // Get all attendance records in the date range
+            attendanceList = attendanceRepository.findAllAttendanceRecordsInDateRange(start, end);
+        }
+        
+        // Convert to DTOs
+        List<AttendanceRecord> attendanceRecords = attendanceList.stream()
+            .map(this::convertToAttendanceRecord)
+            .collect(Collectors.toList());
+        
+        AttendanceStatusResponse response = new AttendanceStatusResponse();
+        response.setAttendanceRecords(attendanceRecords);
+        
+        return response;
+    }
+    
+    private List<Attendance> getAttendanceByStatus(AttendanceStatus status, LocalDate startDate, LocalDate endDate) {
+        switch (status) {
+            case MISSED_CHECKIN:
+                return attendanceRepository.findMissedCheckInRecords(startDate, endDate);
+            case CHECKIN_LATE:
+                return attendanceRepository.findLateCheckInRecords(startDate, endDate);
+            case ABSENT:
+                return attendanceRepository.findAbsentRecords(startDate, endDate);
+            case MISSED_CHECKOUT:
+                return attendanceRepository.findMissedCheckOutRecords(startDate, endDate);
+            case PRESENT:
+                return attendanceRepository.findPresentRecords(startDate, endDate);
+            default:
+                return attendanceRepository.findAllAttendanceRecordsInDateRange(startDate, endDate);
+        }
+    }
+
+    public AttendanceStatusResponse getAttendanceByDate(String date) {
+        // Parse date or use current date as default
+        LocalDate targetDate;
+        if (date != null && !date.trim().isEmpty()) {
+            try {
+                targetDate = LocalDate.parse(date);
+            } catch (Exception e) {
+                throw new BadRequestException("Invalid date format. Please use yyyy-MM-dd format.");
+            }
+        } else {
+            // Use current date as default
+            targetDate = LocalDate.now();
+        }
+        
+        // Get all attendance records for the specified date
+        List<Attendance> attendanceList = attendanceRepository.findByAttendanceDateOrderByCreatedAtDesc(targetDate);
+        
+        // Convert to DTOs
+        List<AttendanceRecord> attendanceRecords = attendanceList.stream()
+            .map(this::convertToAttendanceRecord)
+            .collect(Collectors.toList());
+        
+        AttendanceStatusResponse response = new AttendanceStatusResponse();
+        response.setAttendanceRecords(attendanceRecords);
+        
+        return response;
+    }
+    
+    
+    private AttendanceRecord convertToAttendanceRecord(Attendance attendance) {
+        AttendanceRecord record = new AttendanceRecord();
+        record.setAttendanceId(attendance.getAttendanceId().toString());
+        record.setAttendanceDate(attendance.getCreatedAt().toLocalDate().format(DATE_FORMATTER));
+        
+        if (attendance.getCheckIn() != null) {
+            record.setCheckInTime(attendance.getCheckIn().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+            // Create full datetime for check-in
+            LocalDateTime checkInDateTime = attendance.getCreatedAt().toLocalDate().atTime(attendance.getCheckIn());
+            record.setCheckInDateTime(checkInDateTime.format(TIME_FORMATTER));
+        }
+        
+        if (attendance.getCheckoutOut() != null) {
+            record.setCheckOutTime(attendance.getCheckoutOut().format(DateTimeFormatter.ofPattern("HH:mm:ss")));
+            // Create full datetime for check-out
+            LocalDateTime checkOutDateTime = attendance.getCreatedAt().toLocalDate().atTime(attendance.getCheckoutOut());
+            record.setCheckOutDateTime(checkOutDateTime.format(TIME_FORMATTER));
+        }
+        
+        if (attendance.getCheckinStatus() != null) {
+            record.setCheckInStatus(attendance.getCheckinStatus().name());
+        }
+        
+        if (attendance.getCheckoutStatus() != null) {
+            record.setCheckOutStatus(attendance.getCheckoutStatus().name());
+        }
+        
+        if (attendance.getDateStatus() != null) {
+            record.setDateStatus(attendance.getDateStatus().name());
+        }
+        
+        return record;
+    }
+    
 }
