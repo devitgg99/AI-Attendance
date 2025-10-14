@@ -1,26 +1,32 @@
-FROM maven:3.9.4-eclipse-temurin-21 AS build
+# ──────────────────────────────
+# 1) Build Stage
+# ──────────────────────────────
+FROM gradle:8.7-jdk21 AS build
+
 WORKDIR /app
 
-# Copy the Maven descriptor first (for dependency download optimizations)
-COPY pom.xml .
+# Copy Gradle configuration first (for dependency caching)
+COPY build.gradle settings.gradle gradlew ./
+COPY gradle ./gradle
 
-# Download dependencies (optional but can help layer caching)
-RUN mvn dependency:go-offline
+# Download dependencies (helps with layer caching)
+RUN ./gradlew dependencies --no-daemon || return 0
 
-# Now copy the source code
+# Copy source code
 COPY src ./src
 
-# Build the application, compile & packaging into j.ar
-RUN mvn -B package
+# Build the application (creates fat jar if configured)
+RUN ./gradlew clean build --no-daemon
 
 # ──────────────────────────────
 # 2) Runtime Stage
 # ──────────────────────────────
 FROM eclipse-temurin:21-jre
+
 WORKDIR /app
 
-# Copy the generated .jar from the build stage
-COPY --from=build /app/target/*.jar app.jar
+# Copy the built jar from the build stage
+COPY --from=build /app/build/libs/*.jar app.jar
 
-# Specify the command to run your application
+# Run the application
 ENTRYPOINT ["java", "-jar", "app.jar"]
