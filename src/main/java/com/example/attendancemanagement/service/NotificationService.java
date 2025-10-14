@@ -77,7 +77,7 @@ public class NotificationService {
     /**
      * Send check-out reminder notification at 4:58 PM
      */
-    @Scheduled(cron = "0 58 16 * * MON-FRI")
+    @Scheduled(cron = "0 58 15 * * MON-FRI")
     public void sendCheckOutReminder() {
         log.info("Sending check-out reminder notifications");
         
