@@ -239,26 +239,24 @@ public class AuthService {
 
     @Transactional
     public void requestForgotPassword(ForgotPasswordRequest req) {
-        User user = userRepository.findByEmail(req.getEmail())
+        // Verify user exists
+        userRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new NotFoundException("User not found"));
         
         // Generate OTP using Redis service
         String otp = otpService.generateOtp(req.getEmail());
         
-        // Send OTP via email (with fallback handling)
+        // Send OTP via email only
         try {
             emailService.sendOtpEmail(req.getEmail(), otp);
+            log.info("OTP email sent successfully to: {}", req.getEmail());
         } catch (Exception e) {
-            log.warn("Email sending failed, continuing with FCM fallback: {}", e.getMessage());
+            log.error("Failed to send OTP email to {}: {}", req.getEmail(), e.getMessage());
+            throw new BadRequestException("Failed to send OTP to your email. Please check your email configuration or try again later.");
         }
         
-        // Also send via FCM if available (fallback)
-        Optional<UserSession> sessionWithFcm = userSessionRepository.findTopByUserUserIdOrderByCreatedAtDesc(user.getUserId());
-        sessionWithFcm.ifPresent(session -> {
-            if (session.getFcmToken() != null && !session.getFcmToken().isBlank()) {
-                firebaseService.sendNotification(session.getFcmToken(), "Password Reset OTP", "OTP: " + otp, Map.of());
-            }
-        });
+        // Log the OTP for debugging (remove in production)
+        log.info("Generated OTP for {}: {}", req.getEmail(), otp);
     }
 
     @Transactional
@@ -268,6 +266,58 @@ public class AuthService {
         
         // Verify OTP using Redis service
         if (!otpService.verifyOtp(req.getEmail(), req.getPin())) {
+            throw new UnauthorizedException("Invalid or expired OTP");
+        }
+        
+        // Update password
+        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
+        userRepository.save(user);
+        
+        // Send confirmation email (with fallback handling)
+        try {
+            emailService.sendPasswordResetConfirmation(req.getEmail());
+        } catch (Exception e) {
+            log.warn("Confirmation email sending failed: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * Verify OTP only (without resetting password)
+     */
+    public OtpVerificationResponse verifyOtpOnly(VerifyOtpRequest req) {
+        // Verify user exists
+        userRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        
+        // Verify OTP using Redis service
+        boolean isValid = otpService.verifyOtp(req.getEmail(), req.getOtp());
+        
+        OtpVerificationResponse response = new OtpVerificationResponse();
+        response.setVerified(isValid);
+        
+        if (isValid) {
+            response.setMessage("OTP verified successfully");
+            response.setExpiryTime(null); // OTP is cleared after verification
+            response.setRemainingAttempts(0);
+        } else {
+            response.setMessage("Invalid or expired OTP");
+            response.setExpiryTime(otpService.getOtpExpiryTime(req.getEmail()));
+            response.setRemainingAttempts(otpService.getRemainingAttempts(req.getEmail()));
+        }
+        
+        return response;
+    }
+
+    /**
+     * Reset password with OTP verification
+     */
+    @Transactional
+    public void resetPasswordWithOtp(ResetPasswordRequest req) {
+        User user = userRepository.findByEmail(req.getEmail())
+                .orElseThrow(() -> new NotFoundException("User not found"));
+        
+        // Verify OTP using Redis service
+        if (!otpService.verifyOtp(req.getEmail(), req.getOtp())) {
             throw new UnauthorizedException("Invalid or expired OTP");
         }
         

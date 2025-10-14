@@ -81,12 +81,12 @@ public class AuthController {
     }
 
     @PostMapping("/forgot-password")
-    @Operation(summary = "Request password reset", description = "Send PIN to user's registered device for password reset")
+    @Operation(summary = "Request password reset", description = "Send OTP to user's email address for password reset")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
         authService.requestForgotPassword(request);
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .success(true)
-                .message("Password reset PIN sent successfully")
+                .message("OTP sent to your email address successfully")
                 .payload(null)
                 .status(HttpStatus.OK)
                 .build();
@@ -97,6 +97,32 @@ public class AuthController {
     @Operation(summary = "Verify PIN and reset password", description = "Verify PIN and set new password")
     public ResponseEntity<ApiResponse<Void>> verifyPin(@Valid @RequestBody VerifyPinRequest request) {
         authService.verifyPinAndReset(request);
+        ApiResponse<Void> response = ApiResponse.<Void>builder()
+                .success(true)
+                .message("Password reset successfully")
+                .payload(null)
+                .status(HttpStatus.OK)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-otp")
+    @Operation(summary = "Verify OTP only", description = "Verify OTP without resetting password. Returns verification status and remaining attempts.")
+    public ResponseEntity<ApiResponse<OtpVerificationResponse>> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        OtpVerificationResponse verificationResponse = authService.verifyOtpOnly(request);
+        ApiResponse<OtpVerificationResponse> response = ApiResponse.<OtpVerificationResponse>builder()
+                .success(verificationResponse.isVerified())
+                .message(verificationResponse.getMessage())
+                .payload(verificationResponse)
+                .status(HttpStatus.OK)
+                .build();
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-password")
+    @Operation(summary = "Reset password with OTP", description = "Reset password after OTP verification")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPasswordWithOtp(request);
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .success(true)
                 .message("Password reset successfully")

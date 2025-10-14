@@ -65,6 +65,32 @@ public class AuthDtos {
     }
 
     @Data
+    public static class VerifyOtpRequest {
+        @Email @NotBlank
+        private String email;
+        @NotBlank @Size(min = 6, max = 6)
+        private String otp;
+    }
+
+    @Data
+    public static class ResetPasswordRequest {
+        @Email @NotBlank
+        private String email;
+        @NotBlank @Size(min = 6, max = 6)
+        private String otp;
+        @NotBlank @Size(min = 8)
+        private String newPassword;
+    }
+
+    @Data
+    public static class OtpVerificationResponse {
+        private boolean verified;
+        private String message;
+        private Long expiryTime;
+        private Integer remainingAttempts;
+    }
+
+    @Data
     public static class RegisterRequest {
         @Email @NotBlank
         private String email;
