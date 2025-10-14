@@ -116,3 +116,4 @@ public interface OvertimeRepository extends JpaRepository<Overtime, UUID> {
     Optional<Overtime> findByUserUserIdAndRequestDate(@Param("userId") UUID userId, @Param("date") LocalDate date);
 }
 
+
