@@ -50,6 +50,14 @@ public class FirebaseService {
             log.info("FCM sent successfully. messageId={}, tokenHash={}", messageId, Integer.toHexString(fcmToken.hashCode()));
         } catch (Exception e) {
             log.error("FCM send failed: {} tokenHash={}", e.getMessage(), Integer.toHexString(fcmToken.hashCode()));
+            
+            // Provide specific guidance for common errors
+            if (e.getMessage().contains("SenderId mismatch")) {
+                log.error("SenderId mismatch detected. Please verify:");
+                log.error("1. iOS app's GoogleService-Info.plist matches backend Firebase project");
+                log.error("2. Project number in iOS app: {}", "attendance-notification-87f9d");
+                log.error("3. Regenerate FCM token after fixing configuration");
+            }
         }
     }
 }

@@ -25,6 +25,11 @@ public class AuthDtos {
         private String uerRole;
         private String accessToken;
         private String refreshToken;
+        private String email;
+        @JsonProperty("full_name")
+        private String fullName;
+        @JsonProperty("image_url")
+        private String imageUrl;
     }
 
     @Data
@@ -109,6 +114,8 @@ public class AuthDtos {
         private String email;
         @JsonProperty("full_name")
         private String fullName;
+        @JsonProperty("image_url")
+        private String imageUrl;
         @JsonProperty("user_info")
         private Map<String, Object> userInfo; // JSONB field - each user has exactly one role with role-specific fields
         private String createdAt;

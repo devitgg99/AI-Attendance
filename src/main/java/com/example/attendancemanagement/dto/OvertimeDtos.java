@@ -47,5 +47,14 @@ public class OvertimeDtos {
 		@JsonProperty("status")
 		private String status;
 	}
+
+	@Data
+	public static class UpdateOvertimeStatusRequest {
+		@NotNull
+		private com.example.attendancemanagement.enums.OvertimeStatus status;
+		
+		@JsonProperty("admin_comment")
+		private String adminComment; // Optional comment from admin
+	}
 }
 

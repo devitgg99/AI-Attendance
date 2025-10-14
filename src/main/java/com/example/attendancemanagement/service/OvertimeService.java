@@ -6,9 +6,11 @@ import com.example.attendancemanagement.entity.Overtime;
 import com.example.attendancemanagement.entity.User;
 import com.example.attendancemanagement.enums.OvertimeStatus;
 import com.example.attendancemanagement.exception.BadRequestException;
+import com.example.attendancemanagement.exception.NotFoundException;
 import com.example.attendancemanagement.repository.OvertimeRepository;
 import com.example.attendancemanagement.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +21,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional
 public class OvertimeService {
 
@@ -126,6 +129,129 @@ public class OvertimeService {
 				throw new BadRequestException("Weekday overtime can only end by 9:00 PM");
 			}
 		}
+	}
+
+	public java.util.List<OvertimeResponse> getMyOvertimeRequests(UUID userId) {
+		java.util.List<Overtime> overtimeRequests = overtimeRepository.findByUserUserIdOrderByRequestDateDesc(userId);
+		
+		return overtimeRequests.stream()
+				.map(this::mapToOvertimeResponse)
+				.collect(java.util.stream.Collectors.toList());
+	}
+
+	public OvertimeResponse getOvertimeById(UUID overtimeId, UUID userId) {
+		Overtime overtime = overtimeRepository.findById(overtimeId)
+				.orElseThrow(() -> new NotFoundException("Overtime request not found"));
+		
+		// Ensure the overtime belongs to the current user
+		if (!overtime.getUser().getUserId().equals(userId)) {
+			throw new NotFoundException("Overtime request not found");
+		}
+		
+		return mapToOvertimeResponse(overtime);
+	}
+
+	@Transactional
+	public OvertimeResponse updateOvertimeRequest(UUID overtimeId, UUID userId, RequestOvertime dto) {
+		Overtime overtime = overtimeRepository.findById(overtimeId)
+				.orElseThrow(() -> new NotFoundException("Overtime request not found"));
+		
+		// Ensure the overtime belongs to the current user
+		if (!overtime.getUser().getUserId().equals(userId)) {
+			throw new NotFoundException("Overtime request not found");
+		}
+		
+		// Check if overtime can be updated (only if status is PENDING)
+		if (overtime.getStatus() != com.example.attendancemanagement.enums.OvertimeStatus.PENDING) {
+			throw new BadRequestException("Cannot update overtime request. Status is " + overtime.getStatus() + ". Only PENDING requests can be updated.");
+		}
+		
+		// Validate the updated data
+		LocalDate requestDate;
+		LocalTime startTime;
+		LocalTime endTime;
+		try {
+			requestDate = LocalDate.parse(dto.getRequestDate());
+			startTime = LocalTime.parse(dto.getStartTime());
+			endTime = LocalTime.parse(dto.getEndTime());
+		} catch (Exception e) {
+			throw new BadRequestException("Invalid date/time format. Use dd-MM-yyyy and HH:mm:ss");
+		}
+
+		// Validate request date is not in the past
+		LocalDate today = LocalDate.now();
+		if (requestDate.isBefore(today)) {
+			throw new BadRequestException("Overtime request date cannot be in the past");
+		}
+
+		// Check if user already has an overtime request for the same date (excluding current request)
+		boolean existingOvertimeExists = overtimeRepository.existsByUserUserIdAndRequestDateAndOvertimeIdNot(userId, requestDate, overtimeId);
+		if (existingOvertimeExists) {
+			throw new BadRequestException("You have already submitted an overtime request for this date");
+		}
+
+		if (endTime.isBefore(startTime)) {
+			throw new BadRequestException("end_time must be after start_time");
+		}
+
+		// Calculate actual duration from start and end times
+		long minutesBetween = java.time.Duration.between(startTime, endTime).toMinutes();
+		BigDecimal calculatedDuration = BigDecimal.valueOf(minutesBetween).divide(BigDecimal.valueOf(60), 2, java.math.RoundingMode.HALF_UP);
+		
+		// Validate minimum duration of 2 hours (1h:59min counts as 2 hours)
+		if (calculatedDuration.compareTo(BigDecimal.valueOf(1.99)) < 0) {
+			throw new BadRequestException("Duration must be at least 2 hours (calculated: " + calculatedDuration + " hours)");
+		}
+		
+		// Validate provided duration matches calculated duration (allow 1 minute tolerance)
+		BigDecimal durationDifference = dto.getDuration().subtract(calculatedDuration).abs();
+		if (durationDifference.compareTo(BigDecimal.valueOf(0.02)) > 0) { // 1 minute tolerance
+			throw new BadRequestException("Provided duration (" + dto.getDuration() + "h) does not match calculated duration (" + calculatedDuration + "h)");
+		}
+
+		// Validate weekday overtime time constraints
+		validateWeekdayOvertimeTime(requestDate, startTime, endTime);
+
+		// Update overtime fields
+		overtime.setRequestDate(requestDate);
+		overtime.setStartTime(startTime);
+		overtime.setEndTime(endTime);
+		overtime.setDuration(dto.getDuration());
+		overtime.setObjective(dto.getObjective());
+		overtime.determineIsWeekday();
+
+		Overtime saved = overtimeRepository.save(overtime);
+		
+		log.info("Overtime request updated: {} for user: {}", saved.getOvertimeId(), userId);
+		
+		return mapToOvertimeResponse(saved);
+	}
+
+	@Transactional
+	public OvertimeResponse updateOvertimeStatus(UUID overtimeId, com.example.attendancemanagement.dto.OvertimeDtos.UpdateOvertimeStatusRequest request) {
+		Overtime overtime = overtimeRepository.findById(overtimeId)
+				.orElseThrow(() -> new NotFoundException("Overtime request not found"));
+		
+		overtime.setStatus(request.getStatus());
+		Overtime updatedOvertime = overtimeRepository.save(overtime);
+		
+		log.info("Overtime status updated: {} to {}", overtimeId, request.getStatus());
+		
+		return mapToOvertimeResponse(updatedOvertime);
+	}
+
+	private OvertimeResponse mapToOvertimeResponse(Overtime overtime) {
+		OvertimeResponse res = new OvertimeResponse();
+		res.setOvertimeId(overtime.getOvertimeId().toString());
+		res.setUserId(overtime.getUser().getUserId().toString());
+		res.setRequestDate(overtime.getRequestDate().format(java.time.format.DateTimeFormatter.ofPattern("dd-MM-yyyy")));
+		res.setStartTime(overtime.getStartTime().toString());
+		res.setEndTime(overtime.getEndTime().toString());
+		res.setDuration(overtime.getDuration().setScale(2, java.math.RoundingMode.HALF_UP).toPlainString());
+		res.setIsWeekday(overtime.getIsWeekday());
+		res.setObjective(overtime.getObjective());
+		res.setStatus(overtime.getStatus().name());
+		return res;
 	}
 }
 

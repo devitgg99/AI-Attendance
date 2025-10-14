@@ -51,7 +51,15 @@ public class User extends BaseEntity {
     @Column(name = "user_info", columnDefinition = "jsonb")
     private Map<String, Object> userInfo;
     
+    @JsonProperty("image_url")
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+    
     // One-to-many relationship with UserSession
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<UserSession> userSessions;
+    
+    // One-to-many relationship with Permission
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Permission> permissions;
 }

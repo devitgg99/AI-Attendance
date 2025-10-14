@@ -114,6 +114,13 @@ public interface OvertimeRepository extends JpaRepository<Overtime, UUID> {
      */
     @Query("SELECT o FROM Overtime o WHERE o.user.userId = :userId AND o.requestDate = :date")
     Optional<Overtime> findByUserUserIdAndRequestDate(@Param("userId") UUID userId, @Param("date") LocalDate date);
+    
+    /**
+     * Check if overtime request exists for user and date excluding specific overtime ID
+     */
+    @Query("SELECT COUNT(o) > 0 FROM Overtime o WHERE o.user.userId = :userId AND o.requestDate = :date AND o.overtimeId != :overtimeId")
+    boolean existsByUserUserIdAndRequestDateAndOvertimeIdNot(@Param("userId") UUID userId, @Param("date") LocalDate date, @Param("overtimeId") UUID overtimeId);
 }
+
 
 

@@ -139,6 +139,9 @@ public class AuthService {
         resp.setUerRole(userRole);
         resp.setAccessToken(access);
         resp.setRefreshToken(refresh);
+        resp.setEmail(user.getEmail());
+        resp.setFullName(user.getFullName());
+        resp.setImageUrl(user.getImageUrl());
         return resp;
     }
 

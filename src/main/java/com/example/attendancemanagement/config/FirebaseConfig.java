@@ -20,6 +20,7 @@ public class FirebaseConfig {
     public FirebaseApp firebaseApp() throws IOException {
         FirebaseOptions options = FirebaseOptions.builder()
                 .setCredentials(GoogleCredentials.fromStream(firebaseCredentials.getInputStream()))
+                .setProjectId("attendance-notification-87f9d")
                 .build();
         if (FirebaseApp.getApps().isEmpty()) {
             return FirebaseApp.initializeApp(options);
