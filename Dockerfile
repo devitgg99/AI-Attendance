@@ -1,32 +1,22 @@
-# ──────────────────────────────
-# 1) Build Stage
-# ──────────────────────────────
-FROM gradle:8.7-jdk21 AS build
-
+# Importing JDK and copying required files
+FROM openjdk:19-jdk AS build
 WORKDIR /app
+COPY pom.xml .
+COPY src src
 
-# Copy Gradle configuration first (for dependency caching)
-COPY build.gradle settings.gradle gradlew ./
-COPY gradle ./gradle
+# Copy Maven wrapper
+COPY mvnw .
+COPY .mvn .mvn
 
-# Download dependencies (helps with layer caching)
-RUN ./gradlew dependencies --no-daemon || return 0
+# Set execution permission for the Maven wrapper
+RUN chmod +x ./mvnw
+RUN ./mvnw clean package -DskipTests
 
-# Copy source code
-COPY src ./src
+# Stage 2: Create the final Docker image using OpenJDK 19
+FROM openjdk:19-jdk
+VOLUME /tmp
 
-# Build the application (creates fat jar if configured)
-RUN ./gradlew clean build --no-daemon
-
-# ──────────────────────────────
-# 2) Runtime Stage
-# ──────────────────────────────
-FROM eclipse-temurin:21-jre
-
-WORKDIR /app
-
-# Copy the built jar from the build stage
-COPY --from=build /app/build/libs/*.jar app.jar
-
-# Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Copy the JAR from the build stage
+COPY --from=build /app/target/*.jar app.jar
+ENTRYPOINT ["java","-jar","/app.jar"]
+EXPOSE 8080
