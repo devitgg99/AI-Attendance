@@ -30,6 +30,7 @@ public class AuthDtos {
         private String fullName;
         @JsonProperty("image_url")
         private String imageUrl;
+
     }
 
     @Data
