@@ -1,22 +1,30 @@
-# Importing JDK and copying required files
-FROM openjdk:19-jdk AS build
+# ===== Stage 1: Build the application =====
+FROM gradle:8.9-jdk21 AS build
 WORKDIR /app
-COPY pom.xml .
+
+# Copy Gradle build files
+COPY build.gradle settings.gradle ./
+COPY gradlew ./
+COPY gradle gradle
+
+# Give permission to Gradle wrapper (if needed)
+RUN chmod +x ./gradlew
+
+# Copy source code
 COPY src src
 
-# Copy Maven wrapper
-COPY mvnw .
-COPY .mvn .mvn
+# Build the JAR (skip tests for faster build)
+RUN ./gradlew clean bootJar -x test
 
-# Set execution permission for the Maven wrapper
-RUN chmod +x ./mvnw
-RUN ./mvnw clean package -DskipTests
+# ===== Stage 2: Create the final lightweight image =====
+FROM openjdk:21-jdk-slim
+WORKDIR /app
 
-# Stage 2: Create the final Docker image using OpenJDK 19
-FROM openjdk:21-jdk
-VOLUME /tmp
+# Copy the built JAR from the build stage
+COPY --from=build /app/build/libs/*.jar app.jar
 
-# Copy the JAR from the build stage
-COPY --from=build /app/target/*.jar app.jar
-ENTRYPOINT ["java","-jar","/app.jar"]
+# Expose Spring Boot default port
 EXPOSE 8080
+
+# Run the application
+ENTRYPOINT ["java","-jar","/app/app.jar"]
