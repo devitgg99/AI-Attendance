@@ -1,32 +1,30 @@
-# ──────────────────────────────
-# 1) Build Stage
-# ──────────────────────────────
-FROM gradle:8.7-jdk21 AS build
-
+# ===== Stage 1: Build the application =====
+FROM gradle:8.9-jdk21 AS build
 WORKDIR /app
 
-# Copy Gradle configuration first (for dependency caching)
-COPY build.gradle settings.gradle gradlew ./
-COPY gradle ./gradle
+# Copy Gradle build files
+COPY build.gradle settings.gradle ./
+COPY gradlew ./
+COPY gradle gradle
 
-# Download dependencies (helps with layer caching)
-RUN ./gradlew dependencies --no-daemon || return 0
+# Give permission to Gradle wrapper (if needed)
+RUN chmod +x ./gradlew
 
 # Copy source code
-COPY src ./src
+COPY src src
 
-# Build the application (creates fat jar if configured)
-RUN ./gradlew clean build --no-daemon
+# Build the JAR (skip tests for faster build)
+RUN ./gradlew clean bootJar -x test
 
-# ──────────────────────────────
-# 2) Runtime Stage
-# ──────────────────────────────
-FROM eclipse-temurin:21-jre
-
+# ===== Stage 2: Create the final lightweight image =====
+FROM openjdk:21-jdk-slim
 WORKDIR /app
 
-# Copy the built jar from the build stage
+# Copy the built JAR from the build stage
 COPY --from=build /app/build/libs/*.jar app.jar
 
+# Expose Spring Boot default port
+EXPOSE 8080
+
 # Run the application
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","/app/app.jar"]
